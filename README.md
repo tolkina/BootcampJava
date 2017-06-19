@@ -21,5 +21,5 @@ Java SE Runtime Environment 8. Java SE Development Kit 8. Apache Maven 3.5.0. Ne
     
 ## Author
 
-Full name: Tolkina Alexandra Andreevna
-Email: tolkina_aa_14@mf.grsu.by
+**Full name**: Tolkina Alexandra Andreevna \
+**Email**: tolkina_aa_14@mf.grsu.by
