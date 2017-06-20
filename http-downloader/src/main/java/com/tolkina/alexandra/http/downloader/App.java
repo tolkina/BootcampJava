@@ -8,6 +8,9 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import java.io.File;
+import java.io.IOException;
+
 public class App {
     public static void main(String[] args) {
         Options options = new Options();
@@ -44,9 +47,6 @@ public class App {
                 if (cmd.hasOption("file")) {
                     throw new ParseException("-f cannot be used with -l");
                 }
-                if (!cmd.hasOption("name")) {
-                    throw new ParseException("-n required if used -l");
-                }
             } else {
                 if (!cmd.hasOption("file")) {
                     throw new ParseException("-l or -f required");
@@ -67,6 +67,22 @@ public class App {
             formatter.printHelp("HTTPDownloader", options);
             System.exit(1);
             return;
+        }
+        if (linkStr != null && pathStr != null) {
+            if (nameStr != null) {
+                try {
+                    HTTPDownloader.downloadFileFromURL(linkStr, pathStr, nameStr);
+                    System.out.println("File " + linkStr + " successfully downloaded to " + pathStr + File.separator + nameStr + ".\n");
+                } catch (IOException e) {
+                    System.out.println(e.getMessage());
+                }
+            } else {
+                try {
+                    HTTPDownloader.downloadFileFromURL(linkStr, pathStr);
+                } catch (IOException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
         }
     }
 }
