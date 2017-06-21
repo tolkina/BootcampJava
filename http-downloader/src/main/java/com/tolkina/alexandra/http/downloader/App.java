@@ -8,6 +8,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -97,6 +98,8 @@ public class App {
                 httpDownloader.downloadFilesFromList(fileStr, pathStr);
                 System.out.println("Files from list " + fileStr + " successfully downloaded to " + pathStr + ".");
             } catch (IOException e) {
+                System.out.println(e.getMessage());
+            } catch (ParserConfigurationException e) {
                 System.out.println(e.getMessage());
             }
         }

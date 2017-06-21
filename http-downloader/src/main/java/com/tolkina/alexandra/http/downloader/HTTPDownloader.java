@@ -6,12 +6,21 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,53 +79,87 @@ public class HTTPDownloader {
         httpConn.disconnect();
     }
 
-    public void downloadFilesFromList(String listFilePath, String saveDir) throws IOException {
+    public void downloadFilesFromList(String listFilePath, String saveDir) throws IOException, ParserConfigurationException {
         String fileListExtension = FilenameUtils.getExtension(listFilePath);
+        File logFile = new File(saveDir + File.separator + "log.txt");
+        PrintWriter logWriter = new PrintWriter(logFile);
+        double currentProgress, stepProgress;
         if (fileListExtension.equalsIgnoreCase("csv")) {
             File listFile = new File(listFilePath);
             CSVParser csvParser = CSVParser.parse(listFile, Charset.forName("UTF-8"), CSVFormat.DEFAULT);
             List<CSVRecord> records = csvParser.getRecords();
-            List<String[]> URLFileNamePairs = new ArrayList<>();
+            currentProgress = 0.0;
+            stepProgress = 1.0 / records.size();
             for (CSVRecord record : records) {
                 if (record.size() == 1) {
-                    URLFileNamePairs.add(new String[] {record.get(0)});
+                    try {
+                        downloadFileFromURL(record.get(0), saveDir);
+                        logWriter.println("[Successfully] " + record.get(0));
+                    } catch (IOException e) {
+                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">.");
+                    }
                 } else if (record.size() == 2) {
-                    URLFileNamePairs.add(new String[]{record.get(0), record.get(1)});
+                    try {
+                        downloadFileFromURL(record.get(0), saveDir, record.get(1));
+                        logWriter.println("[Successfully] " + record.get(0));
+                    } catch (IOException e) {
+                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">.");
+                    }
                 } else {
                     throw new IOException("Invalid column count. Line number: " + record.getRecordNumber() + ".");
                 }
+                currentProgress += stepProgress;
+                progress(currentProgress);
             }
-            File logFile = new File(saveDir + File.separator + "log.txt");
-            PrintWriter logWriter = new PrintWriter(logFile);
-            double currentProgress = 0.0;
-            double stepProgress = 1.0 / URLFileNamePairs.size();
-            for (String[] URLFileNamePair : URLFileNamePairs) {
-                if (URLFileNamePair.length == 1) {
-                    try {
-                        downloadFileFromURL(URLFileNamePair[0], saveDir);
-                        logWriter.println("[Successfully] " + URLFileNamePair[0]);
-                    } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + URLFileNamePair[0] + " <" + e.getMessage() + ">.");
-                    }
-                } else if (URLFileNamePair.length == 2) {
-                    try {
-                        downloadFileFromURL(URLFileNamePair[0], saveDir, URLFileNamePair[1]);
-                        logWriter.println("[Successfully] " + URLFileNamePair[0]);
-                    } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + URLFileNamePair[0] + " <" + e.getMessage() + ">.");
+        } else if (fileListExtension.equalsIgnoreCase("xml")) {
+            File fXmlFile = new File(listFilePath);
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+            Document doc;
+            try {
+                doc = dBuilder.parse(fXmlFile);
+            } catch (SAXException e) {
+                throw new IOException("Bad XML file. Error: " + e.getMessage() + ".");
+            }
+            doc.getDocumentElement().normalize();
+            NodeList nList = doc.getElementsByTagName("file");
+            currentProgress = 0.0;
+            stepProgress = 1.0 / nList.getLength();
+            for (int i = 0; i < nList.getLength(); i++) {
+                Node nNode = nList.item(i);
+                if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+                    Element eElement = (Element) nNode;
+                    if (eElement.getElementsByTagName("link").getLength() == 0) {
+                        throw new IOException("Bad XML file. No link.");
+                    } else {
+                        if (eElement.getElementsByTagName("name").getLength() == 0) {
+                            String link = eElement.getElementsByTagName("link").item(0).getTextContent();
+                            try {
+                                downloadFileFromURL(link, saveDir);
+                                logWriter.println("[Successfully] " + link);
+                            } catch (IOException e) {
+                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">.");
+                            }
+                        } else {
+                            String link = eElement.getElementsByTagName("link").item(0).getTextContent();
+                            try {
+                                downloadFileFromURL(link, saveDir, eElement.getElementsByTagName("name").item(0).getTextContent());
+                                logWriter.println("[Successfully] " + link);
+                            } catch (IOException e) {
+                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">.");
+                            }
+                        }
                     }
                 }
                 currentProgress += stepProgress;
                 progress(currentProgress);
             }
-            logWriter.close();
-        } else if (fileListExtension.equalsIgnoreCase("xml")) {
-
         } else if (fileListExtension.equalsIgnoreCase("json")) {
 
         } else {
             throw new InvalidFormatException("File with list of links must be CSV, XML or JSON.");
         }
+        logWriter.close();
     }
 
     public void progress(double currentProgress) {
