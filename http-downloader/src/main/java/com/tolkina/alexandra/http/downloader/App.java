@@ -13,6 +13,8 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class App {
     public static void main(String[] args) {
@@ -100,6 +102,8 @@ public class App {
             } catch (IOException e) {
                 System.out.println(e.getMessage());
             } catch (ParserConfigurationException e) {
+                System.out.println(e.getMessage());
+            } catch (org.json.simple.parser.ParseException e) {
                 System.out.println(e.getMessage());
             }
         }

@@ -3,7 +3,6 @@ package com.tolkina.alexandra.http.downloader;
 import com.sun.media.sound.InvalidFormatException;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
 import org.w3c.dom.Document;
@@ -20,9 +19,12 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.io.FileUtils;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 public class HTTPDownloader {
     private static final int BUFFER_SIZE = 4096;
@@ -79,7 +81,7 @@ public class HTTPDownloader {
         httpConn.disconnect();
     }
 
-    public void downloadFilesFromList(String listFilePath, String saveDir) throws IOException, ParserConfigurationException {
+    public void downloadFilesFromList(String listFilePath, String saveDir) throws IOException, ParserConfigurationException, ParseException {
         String fileListExtension = FilenameUtils.getExtension(listFilePath);
         File logFile = new File(saveDir + File.separator + "log.txt");
         PrintWriter logWriter = new PrintWriter(logFile);
@@ -96,14 +98,14 @@ public class HTTPDownloader {
                         downloadFileFromURL(record.get(0), saveDir);
                         logWriter.println("[Successfully] " + record.get(0));
                     } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">.");
+                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">");
                     }
                 } else if (record.size() == 2) {
                     try {
                         downloadFileFromURL(record.get(0), saveDir, record.get(1));
                         logWriter.println("[Successfully] " + record.get(0));
                     } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">.");
+                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">");
                     }
                 } else {
                     throw new IOException("Invalid column count. Line number: " + record.getRecordNumber() + ".");
@@ -138,7 +140,7 @@ public class HTTPDownloader {
                                 downloadFileFromURL(link, saveDir);
                                 logWriter.println("[Successfully] " + link);
                             } catch (IOException e) {
-                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">.");
+                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
                             }
                         } else {
                             String link = eElement.getElementsByTagName("link").item(0).getTextContent();
@@ -146,7 +148,7 @@ public class HTTPDownloader {
                                 downloadFileFromURL(link, saveDir, eElement.getElementsByTagName("name").item(0).getTextContent());
                                 logWriter.println("[Successfully] " + link);
                             } catch (IOException e) {
-                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">.");
+                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
                             }
                         }
                     }
@@ -155,7 +157,33 @@ public class HTTPDownloader {
                 progress(currentProgress);
             }
         } else if (fileListExtension.equalsIgnoreCase("json")) {
-
+            File jsonFile = new File(listFilePath);
+            JSONParser jsonParser = new JSONParser();
+            ArrayList<JSONObject> list = (ArrayList<JSONObject>)jsonParser.parse(FileUtils.readFileToString(jsonFile));
+            currentProgress = 0.0;
+            stepProgress = 1.0 / list.size();
+            for (JSONObject obj : list) {
+                if (obj.containsKey("link") && obj.containsKey("name")) {
+                    String link = (String)obj.get("link");
+                    String name = (String)obj.get("name");
+                    try {
+                        downloadFileFromURL(link, saveDir, name);
+                        logWriter.println("[Successfully] " + link);
+                    } catch (IOException e) {
+                        logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                    }
+                } else if (obj.containsKey("link")) {
+                    String link = (String)obj.get("link");
+                    try {
+                        downloadFileFromURL(link, saveDir);
+                        logWriter.println("[Successfully] " + link);
+                    } catch (IOException e) {
+                        logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                    }
+                }
+                currentProgress += stepProgress;
+                progress(currentProgress);
+            }
         } else {
             throw new InvalidFormatException("File with list of links must be CSV, XML or JSON.");
         }
