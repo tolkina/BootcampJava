@@ -28,6 +28,8 @@ import org.json.simple.parser.ParseException;
 
 public class HTTPDownloader {
     private static final int BUFFER_SIZE = 4096;
+    private double currentProgress = 0.0;
+    private double stepProgress = 1.0;
     
     public void downloadFileFromURL(String fileURL, String saveDir, String saveName) throws IOException {
         URL url = new URL(fileURL);
@@ -52,7 +54,12 @@ public class HTTPDownloader {
 
     public void downloadFileFromURL(String fileURL, String saveDir) throws IOException {
         URL url = new URL(fileURL);
-        HttpURLConnection httpConn = (HttpURLConnection)url.openConnection();
+        HttpURLConnection httpConn;
+        try {
+            httpConn = (HttpURLConnection)url.openConnection();
+        } catch (ClassCastException e) {
+            throw new IOException("Protocol must be http(s).");
+        }
         int respCode = httpConn.getResponseCode();
         if (respCode == HttpURLConnection.HTTP_OK) {
             String fileName = "";
@@ -82,10 +89,19 @@ public class HTTPDownloader {
     }
 
     public void downloadFilesFromList(String listFilePath, String saveDir) throws IOException, ParserConfigurationException, ParseException {
+        downloadFilesFromList(listFilePath, saveDir, 1);
+    }
+    
+    public void downloadFilesFromList(String listFilePath, String saveDir, int threadCount) throws IOException, ParserConfigurationException, ParseException {
         String fileListExtension = FilenameUtils.getExtension(listFilePath);
         File logFile = new File(saveDir + File.separator + "log.txt");
         PrintWriter logWriter = new PrintWriter(logFile);
-        double currentProgress, stepProgress;
+        Thread.UncaughtExceptionHandler handler = new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread th, Throwable e) {
+                System.out.println(e.getMessage());
+            }
+        };
         if (fileListExtension.equalsIgnoreCase("csv")) {
             File listFile = new File(listFilePath);
             CSVParser csvParser = CSVParser.parse(listFile, Charset.forName("UTF-8"), CSVFormat.DEFAULT);
@@ -93,26 +109,34 @@ public class HTTPDownloader {
             currentProgress = 0.0;
             stepProgress = 1.0 / records.size();
             for (CSVRecord record : records) {
-                if (record.size() == 1) {
-                    try {
-                        downloadFileFromURL(record.get(0), saveDir);
-                        logWriter.println("[Successfully] " + record.get(0));
-                    } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">");
+                while (Thread.activeCount() >= threadCount + 1);
+                Thread thread = new Thread() {
+                    @Override
+                    public void run() {
+                        if (record.size() == 1) {
+                            try {
+                                downloadFileFromURL(record.get(0), saveDir);
+                                logWriter.println("[Successfully] " + record.get(0));
+                            } catch (IOException e) {
+                                logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">");
+                            }
+                        } else if (record.size() == 2) {
+                            try {
+                                downloadFileFromURL(record.get(0), saveDir, record.get(1));
+                                logWriter.println("[Successfully] " + record.get(0));
+                            } catch (IOException e) {
+                                logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">");
+                            }
+                        } else {
+                            throw new RuntimeException("Invalid column count. Line number: " + record.getRecordNumber() + ".");
+                        }
+                        incProgress(stepProgress);
                     }
-                } else if (record.size() == 2) {
-                    try {
-                        downloadFileFromURL(record.get(0), saveDir, record.get(1));
-                        logWriter.println("[Successfully] " + record.get(0));
-                    } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + record.get(0) + " <" + e.getMessage() + ">");
-                    }
-                } else {
-                    throw new IOException("Invalid column count. Line number: " + record.getRecordNumber() + ".");
-                }
-                currentProgress += stepProgress;
-                progress(currentProgress);
+                };
+                thread.setUncaughtExceptionHandler(handler);
+                thread.start();
             }
+            while (Thread.activeCount() > 1);
         } else if (fileListExtension.equalsIgnoreCase("xml")) {
             File fXmlFile = new File(listFilePath);
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -129,33 +153,41 @@ public class HTTPDownloader {
             stepProgress = 1.0 / nList.getLength();
             for (int i = 0; i < nList.getLength(); i++) {
                 Node nNode = nList.item(i);
-                if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-                    Element eElement = (Element) nNode;
-                    if (eElement.getElementsByTagName("link").getLength() == 0) {
-                        throw new IOException("Bad XML file. No link.");
-                    } else {
-                        if (eElement.getElementsByTagName("name").getLength() == 0) {
-                            String link = eElement.getElementsByTagName("link").item(0).getTextContent();
-                            try {
-                                downloadFileFromURL(link, saveDir);
-                                logWriter.println("[Successfully] " + link);
-                            } catch (IOException e) {
-                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
-                            }
-                        } else {
-                            String link = eElement.getElementsByTagName("link").item(0).getTextContent();
-                            try {
-                                downloadFileFromURL(link, saveDir, eElement.getElementsByTagName("name").item(0).getTextContent());
-                                logWriter.println("[Successfully] " + link);
-                            } catch (IOException e) {
-                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                while (Thread.activeCount() >= threadCount + 1);
+                Thread thread = new Thread() {
+                    @Override
+                    public void run() {
+                        if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+                            Element eElement = (Element) nNode;
+                            if (eElement.getElementsByTagName("link").getLength() == 0) {
+                                throw new RuntimeException("Bad XML file. No link.");
+                            } else {
+                                if (eElement.getElementsByTagName("name").getLength() == 0) {
+                                    String link = eElement.getElementsByTagName("link").item(0).getTextContent();
+                                    try {
+                                        downloadFileFromURL(link, saveDir);
+                                        logWriter.println("[Successfully] " + link);
+                                    } catch (IOException e) {
+                                        logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                                    }
+                                } else {
+                                    String link = eElement.getElementsByTagName("link").item(0).getTextContent();
+                                    try {
+                                        downloadFileFromURL(link, saveDir, eElement.getElementsByTagName("name").item(0).getTextContent());
+                                        logWriter.println("[Successfully] " + link);
+                                    } catch (IOException e) {
+                                        logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                                    }
+                                }
                             }
                         }
+                        incProgress(stepProgress);
                     }
-                }
-                currentProgress += stepProgress;
-                progress(currentProgress);
+                };
+                thread.setUncaughtExceptionHandler(handler);
+                thread.start();
             }
+            while (Thread.activeCount() > 1);
         } else if (fileListExtension.equalsIgnoreCase("json")) {
             File jsonFile = new File(listFilePath);
             JSONParser jsonParser = new JSONParser();
@@ -163,33 +195,46 @@ public class HTTPDownloader {
             currentProgress = 0.0;
             stepProgress = 1.0 / list.size();
             for (JSONObject obj : list) {
-                if (obj.containsKey("link") && obj.containsKey("name")) {
-                    String link = (String)obj.get("link");
-                    String name = (String)obj.get("name");
-                    try {
-                        downloadFileFromURL(link, saveDir, name);
-                        logWriter.println("[Successfully] " + link);
-                    } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                while (Thread.activeCount() >= threadCount + 1);
+                Thread thread = new Thread() {
+                    @Override
+                    public void run() {
+                        if (obj.containsKey("link") && obj.containsKey("name")) {
+                            String link = (String)obj.get("link");
+                            String name = (String)obj.get("name");
+                            try {
+                                downloadFileFromURL(link, saveDir, name);
+                                logWriter.println("[Successfully] " + link);
+                            } catch (IOException e) {
+                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                            }
+                        } else if (obj.containsKey("link")) {
+                            String link = (String)obj.get("link");
+                            try {
+                                downloadFileFromURL(link, saveDir);
+                                logWriter.println("[Successfully] " + link);
+                            } catch (IOException e) {
+                                logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
+                            }
+                        }
+                        incProgress(stepProgress);
                     }
-                } else if (obj.containsKey("link")) {
-                    String link = (String)obj.get("link");
-                    try {
-                        downloadFileFromURL(link, saveDir);
-                        logWriter.println("[Successfully] " + link);
-                    } catch (IOException e) {
-                        logWriter.println("[   Error    ] " + link + " <" + e.getMessage() + ">");
-                    }
-                }
-                currentProgress += stepProgress;
-                progress(currentProgress);
+                };
+                thread.setUncaughtExceptionHandler(handler);
+                thread.start();
             }
+            while (Thread.activeCount() > 1);
         } else {
             throw new InvalidFormatException("File with list of links must be CSV, XML or JSON.");
         }
         logWriter.close();
     }
 
-    public void progress(double currentProgress) {
+    public synchronized void progress(double currentProgress) {
+    }
+    
+    private synchronized void incProgress(double step) {
+        currentProgress += step;
+        progress(currentProgress);
     }
 }

@@ -52,6 +52,9 @@ public class App {
                 if (cmd.hasOption("file")) {
                     throw new ParseException("-f cannot be used with -l");
                 }
+                if (cmd.hasOption("threads")) {
+                    throw new ParseException("-t cannot be used with -l");
+                }
             } else {
                 if (!cmd.hasOption("file")) {
                     throw new ParseException("-l or -f required");
@@ -97,7 +100,20 @@ public class App {
             }
         } else if (fileStr != null && pathStr != null) {
             try {
-                httpDownloader.downloadFilesFromList(fileStr, pathStr);
+                if (threadsStr != null) {
+                    try {
+                        int tCount = Integer.parseInt(threadsStr);
+                        if (tCount < 1) {
+                            throw new NumberFormatException();
+                        }
+                        httpDownloader.downloadFilesFromList(fileStr, pathStr, tCount);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Parameter threads must be integer and greater than 1!");
+                        return;
+                    }
+                } else {
+                    httpDownloader.downloadFilesFromList(fileStr, pathStr);
+                }
                 System.out.println("Files from list " + fileStr + " successfully downloaded to " + pathStr + ".");
             } catch (IOException e) {
                 System.out.println(e.getMessage());
