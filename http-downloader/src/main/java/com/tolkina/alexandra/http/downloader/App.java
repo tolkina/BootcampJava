@@ -10,6 +10,8 @@ import org.apache.commons.cli.ParseException;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public class App {
     public static void main(String[] args) {
@@ -68,20 +70,34 @@ public class App {
             System.exit(1);
             return;
         }
+        HTTPDownloader httpDownloader = new HTTPDownloader() {
+            @Override
+            public void progress(double currentProgress) {
+                System.out.println("Current progress: " + new BigDecimal(currentProgress * 100.0).setScale(2, RoundingMode.DOWN).doubleValue() + "%.");
+            }
+        };
         if (linkStr != null && pathStr != null) {
             if (nameStr != null) {
                 try {
-                    HTTPDownloader.downloadFileFromURL(linkStr, pathStr, nameStr);
-                    System.out.println("File " + linkStr + " successfully downloaded to " + pathStr + File.separator + nameStr + ".\n");
+                    httpDownloader.downloadFileFromURL(linkStr, pathStr, nameStr);
+                    System.out.println("File " + linkStr + " successfully downloaded to " + pathStr + File.separator + nameStr + ".");
                 } catch (IOException e) {
                     System.out.println(e.getMessage());
                 }
             } else {
                 try {
-                    HTTPDownloader.downloadFileFromURL(linkStr, pathStr);
+                    httpDownloader.downloadFileFromURL(linkStr, pathStr);
+                    System.out.println("File " + linkStr + " successfully downloaded to " + pathStr + ".");
                 } catch (IOException e) {
                     System.out.println(e.getMessage());
                 }
+            }
+        } else if (fileStr != null && pathStr != null) {
+            try {
+                httpDownloader.downloadFilesFromList(fileStr, pathStr);
+                System.out.println("Files from list " + fileStr + " successfully downloaded to " + pathStr + ".");
+            } catch (IOException e) {
+                System.out.println(e.getMessage());
             }
         }
     }
