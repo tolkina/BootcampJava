@@ -18,6 +18,12 @@ Java SE Runtime Environment 8. Java SE Development Kit 8. Apache Maven 3.5.0. Ne
     -n <file_name>      Name of the file to save. Not work with: -f.
     -t <thread_count>   The maximum number of threads.
     VERSION             Current version of application.
+    <link>              Link must contain the HTTP(S) at the beginning. For example https://www.example.com/file.extension
+    <save_folder>       Directory must exist.
+    <thread_count>      Must be greater than 1.
+    
+    For example:
+    java -jar http-downloader-1.0.jar -l https://www.example.com/file.zip -p c:/downloads -n archive.zip -t 5
     
 ## Author
 
