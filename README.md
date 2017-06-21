@@ -28,7 +28,7 @@ Java SE Runtime Environment 8. Java SE Development Kit 8. Apache Maven 3.5.0. Ne
 ## Author
 
 **Full name**: Alexandra Tolkina \
-**Email**: tolkina_aa_14@mf.grsu.by
+**Email**: aleksandra_tolkina@mail.ru
 
 Bootcamp Java. Exposit. Task 2. CSV Finder
 ==========================================
@@ -54,4 +54,4 @@ Java SE Runtime Environment 8. Java SE Development Kit 8. Apache Maven 3.5.0. Ne
 ## Author
 
 **Full name**: Alexandra Tolkina \
-**Email**: tolkina_aa_14@mf.grsu.by
+**Email**: aleksandra_tolkina@mail.ru
