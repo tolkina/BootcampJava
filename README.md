@@ -7,7 +7,10 @@ This is a Java test project. The application allows you to download files using 
 
 ## Dependencies
 
-Java SE Runtime Environment 8. Java SE Development Kit 8. Apache Maven 3.5.0. NetBeans IDE 8.2 (Build 201609300101).
+* Java SE Runtime Environment 8
+* Java SE Development Kit 8
+* Apache Maven 3.5.0
+* NetBeans IDE 8.2 (Build 201609300101)
 
 ## Running
 
@@ -39,7 +42,10 @@ This is a Java test project. The application allows you to find any string into 
 
 ## Dependencies
 
-Java SE Runtime Environment 8. Java SE Development Kit 8. Apache Maven 3.5.0. NetBeans IDE 8.2 (Build 201609300101).
+* Java SE Runtime Environment 8
+* Java SE Development Kit 8
+* Apache Maven 3.5.0
+* NetBeans IDE 8.2 (Build 201609300101)
 
 ## Running
 
@@ -50,6 +56,10 @@ Java SE Runtime Environment 8. Java SE Development Kit 8. Apache Maven 3.5.0. Ne
     VERSION             Current version of application.
     <input_file>        Must have CSV format.
     <output_file>       Must have CSV or TXT format.
+    <search_string>     The search string. You can use regular expressions, but then you must use quotation marks in the query.
+    
+    For example:
+    java -jar csv-finder-1.0.jar -i c:\input.csv -o c:\output.csv -q "o\w*e"
     
 ## Author
 
