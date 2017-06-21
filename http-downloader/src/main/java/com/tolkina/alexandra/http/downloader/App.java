@@ -72,7 +72,7 @@ public class App {
             threadsStr = cmd.getOptionValue("threads");
         } catch (ParseException e) {
             System.out.println(e.getMessage());
-            formatter.printHelp("HTTPDownloader", options);
+            formatter.printHelp("http-downloader", options);
             System.exit(1);
             return;
         }

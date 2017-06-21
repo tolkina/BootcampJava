@@ -20,7 +20,7 @@ public class App {
         options.addOption(questOption);
         Option outputOption = new Option("o", "output", true, "output file");
         outputOption.setRequired(true);
-        options.addOption(questOption);
+        options.addOption(outputOption);
         CommandLineParser cmdParser = new DefaultParser();
         HelpFormatter helpFormatter = new HelpFormatter();
         CommandLine cmd;
@@ -31,6 +31,7 @@ public class App {
             questString = cmd.getOptionValue("quest");
             outputString = cmd.getOptionValue("output");
         } catch (ParseException ex) {
+            helpFormatter.printHelp("csv-finder", options);
             System.out.println(ex.getMessage());
             System.exit(1);
             return;
